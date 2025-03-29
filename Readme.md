@@ -13,3 +13,7 @@ The results will be written on the console, and also in an output file, includin
 2025-28-3:  
 The initial revision, will be pushed. Initial implementation of the linear system, via struct, is completed. the gauss-sidel method is also implemented. Few improvments are required.
 The prompts, must also be improved, in next revision.
+
+
+2025-29-3:
+The sparse matrix operation functions are added, but still not working properly, and need debugging.
