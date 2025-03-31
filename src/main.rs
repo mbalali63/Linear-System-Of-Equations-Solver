@@ -1,7 +1,8 @@
 use std::io;
 use std::any::type_name;
 
-const max_number_of_equations:usize = 4;
+const max_number_of_equations:usize = 100;
+const use_sparse_tech:bool = true;
 
 struct LS {
     n: usize,
@@ -27,16 +28,14 @@ impl LS {
     fn check_for_diagonal_dominant(&self) -> bool{
         let mut number_of_OK_rows = 0; // number of rows which the sum of off-diagonal elements is smaller than diagonal element.
         for row in 0..self.n {
+            let mut sum0 = 0.0;
             for col in 0..self.n {
-                let mut sum0 = 0.0;
-                for col in 0..self.n {
-                    if row != col {
-                        sum0 += self.A[row][col];
-                    }
+                if row != col {
+                    sum0 += self.A[row][col].abs();
                 }
-                if sum0 < self.A[row][row] {
-                    number_of_OK_rows += 1;
-                }
+            }
+            if sum0 < self.A[row][row].abs() {
+                number_of_OK_rows += 1;
             }
         }
         if number_of_OK_rows == self.n {
@@ -50,11 +49,11 @@ impl LS {
         let mut number_of_OK_rows = 0; // number of rows which the sum of off-diagonal elements is smaller than diagonal element.
         let mut sum_row = [0.0;max_number_of_equations];
         let mut diag_row = [0.0;max_number_of_equations];
-        for i in 0..self.non_zero_elements_count {
+        for i in 0..max_number_of_equations {
             if self.A_rows[i] != self.A_cols[i] {
-                sum_row[self.A_rows[i]] += self.A_values[i];
+                sum_row[self.A_rows[i]] += self.A_values[i].abs();
             } else {
-                diag_row[self.A_rows[i]] = self.A_values[i];
+                diag_row[self.A_rows[i]] = self.A_values[i].abs();
             }
         }
         for i in 0..self.n {
@@ -62,7 +61,6 @@ impl LS {
                 number_of_OK_rows += 1;
             }
         }
-
         if number_of_OK_rows == self.n {
             return true;
         }
@@ -110,11 +108,12 @@ impl LS {
         while err > eps0 {
             let mut sum_row = [0.0;max_number_of_equations];
             let mut diag_row = [0.0;max_number_of_equations];
+
             for i in 0..self.non_zero_elements_count {
                 if self.A_rows[i] != self.A_cols[i] {
                     sum_row[self.A_rows[i]] += self.A_values[i] * self.x[self.A_cols[i]];
                 } else {
-                    diag_row[self.A_rows[i]] = self.A_values[i] * self.x[self.A_cols[i]];
+                    diag_row[self.A_rows[i]] = self.A_values[i];
                 }
             }
             for i in 0..self.n {
@@ -129,7 +128,6 @@ impl LS {
             for i in 0..self.non_zero_elements_count {
                 err += (sum_row[i] - self.b[self.A_cols[i]]).abs();
             }
-            println!("itr = {} - err = {}",itr,err);
             itr += 1;        
             if itr > max_itr {
                 break;
@@ -167,7 +165,13 @@ impl LS {
         for element in input.split(',') {
             let element_as_number: f32 = element.trim().parse().expect("Failed to convert to number");
             if col <= n {
-                self.modify_A_element(row,col,element_as_number);
+                if use_sparse_tech {
+                    if (element_as_number != 0.0) {
+                        self.modify_A_element_sparse(row,col,element_as_number);
+                    }
+                } else {
+                    self.modify_A_element(row,col,element_as_number);
+                }
                 // self.A[row][col] = element_as_number;
                 col += 1;
             }
@@ -200,24 +204,46 @@ fn print_type_of<T>(_: &T) {
 fn main() {
     let mut ls0 = LS  {
         n: 2,
-        A: [[2.0,3.0,0.0,0.0],[1.0,-1.0,0.0,0.0],[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0]],
+        A: [[0.0;max_number_of_equations];max_number_of_equations],
         A_values: [0.0;max_number_of_equations],       //It is assumed that a sparse matrix does not include non-zero values more that the number of rows or columns
         A_rows: [0;max_number_of_equations],
         A_cols: [0;max_number_of_equations],
         non_zero_elements_count: 0,
-        b: [5.0,3.0,0.0,0.0],
-        x: [0.0,0.0,0.0,0.0],
+        b: [0.0;max_number_of_equations],
+        x: [0.0;max_number_of_equations],
     };
     ls0.read_A_from_CLI();
+
+    if use_sparse_tech {
+        if !ls0.check_for_diagonal_dominant_sparse() {
+            println!("The Linear system is not diagonally dominant. so the gauess sidel may diverge.");
+        }    
+    } else {
+        if !ls0.check_for_diagonal_dominant() {
+            println!("The Linear system is not diagonally dominant. so the gauess sidel may diverge.");
+        }
+    }
     if !ls0.check_for_diagonal_dominant() {
         println!("The Linear system is not diagonally dominant. so the gauess sidel may diverge.");
     }
     ls0.read_B();
-    ls0.guass_sidel();
-    println!("A = {:?}",ls0.A);
-    println!("b = {:?}",ls0.b);
-    println!("x = {:?}",ls0.x);
-    println!("{}",ls0.n);
+    if use_sparse_tech {
+        ls0.guass_sidel_sparse();
+        println!("A_values = {:?}",ls0.A_values);
+        println!("A_rows = {:?}",ls0.A_rows);
+        println!("A_cols = {:?}",ls0.A_cols);
+        println!("b = {:?}",ls0.b);
+        println!("x = {:?}",ls0.x);
+        println!("{}",ls0.n);
+
+    } else {
+        ls0.guass_sidel();
+        println!("A = {:?}",ls0.A);
+        println!("b = {:?}",ls0.b);
+        println!("x = {:?}",ls0.x);
+        println!("{}",ls0.n);
+    }
+    
 
 }
 

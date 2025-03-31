@@ -17,3 +17,12 @@ The prompts, must also be improved, in next revision.
 
 2025-29-3:
 The sparse matrix operation functions are added, but still not working properly, and need debugging.
+
+
+2025-31-3:
+The problem of sparse matrices are solved.
+
+next steps:
+    Accept file for inputs
+    Create output file for results
+    Create log file
